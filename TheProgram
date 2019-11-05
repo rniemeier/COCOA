@@ -1,0 +1,367 @@
+##Computational Corpus Analysis
+##Gets file from user, preprocesses it and output general data,
+##then gets input from user to determine what analyses to run
+
+import easygui
+import nltk
+import nltk.data
+from nltk.collocations import *
+import re ##regex stuff -> idk if using at all
+import string
+from collections import OrderedDict
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy import special
+from datetime import datetime
+import os.path as op #am I using this? hmmmm
+
+postags = {
+    "CC": "conjunction, coordinating",
+    "CD": "numeral, cardinal",
+    "DT": "determiner",
+    "EX": "existential there",
+    "FW": "foreign word",
+    "IN": "preposition or conjunction, subordinating",
+    "JJ": "adjective or numeral, ordinal",
+    "JJR": "adjective, comparative",
+    "JJS": "adjective, superlative",
+    "LS": "list item marker",
+    "MD": "modal auxiliary",
+    "NN": "noun, common, singular or mass",
+    "NNP": "noun, proper, singular",
+    "NNPS": "noun, proper, plural",
+    "NNS": "noun, common, plural",
+    "PDT": "pre-determiner",
+    "POS": "genitive marker",
+    "PRP": "pronoun, personal",
+    "PRP$": "pronoun, possessive",
+    "RB": "adverb",
+    "RBR": "adverb, comparative",
+    "RBS": "adverb, superlative",
+    "RP": "particle",
+    "SYM": "symbol",
+    "TO": "\'to\' as preposition or infinitive marker",
+    "UH": "interjection",
+    "VB": "verb, base form",
+    "VBD": "verb, past tense",
+    "VBG": "verb, present participle or gerund",
+    "VBN": "verb, past participle",
+    "VBP": "verb, present tense, not 3rd person singular",
+    "VBZ": "verb, present tense, 3rd person singular",
+    "WDT": "WH-determiner",
+    "WP": "WH-pronoun",
+    "WP$": "WH-pronoun, possessive",
+    "WRB": "WH-adverb",
+    }
+
+
+def Preprocessor(sentences):
+    #First, get rid of the stuff we don't want
+    chapter = 0
+    frequency = {}
+    sorted_frequency = {}
+    wordCount = 0
+    individualWordCount = 0
+    returnarray = []
+    for s in sentences:
+        if("chapter" in s.lower()):
+            chapter = chapter + 1
+            remove = "Chapter " + str(chapter)
+            s = s.replace(remove, "") #Remove chapter number
+        s = s.replace('\n', ' ')  #Sentences shouldn't have
+        s = s.replace('—', ' ')   #weird newlines or dashes. This also
+                                  #makes our data prettier
+        #Find the word frequency
+        for word in s.split():
+            wordCount = wordCount + 1;
+            word = word.translate(str.maketrans('', '', string.punctuation))
+            word = word.replace('“', '')
+            word = word.replace('”', '')
+            word = word.lower()
+            if word in frequency: #word already seen
+                frequency[word] = frequency[word] + 1
+            else: #word hasn't been seen yet
+                frequency[word] = 1
+                individualWordCount = individualWordCount + 1
+    returnarray.append("\n\nNumber of chapters: \t" + str(chapter) + "\n")
+    returnarray.append("Number of total words: \t" + str(wordCount) + "\n")
+    returnarray.append("Number of individual words: \t" + str(individualWordCount) + "\n\n\n")
+    #Ordered dictionary          
+    frequencyGtoL = OrderedDict(reversed(sorted(frequency.items(), key=lambda x: x[1])))
+    frequencyLtoG = OrderedDict((sorted(frequency.items(), key=lambda x: x[1])))
+    top1000 = {k: frequencyGtoL[k] for k in list(frequencyGtoL)[:1000]}
+    top100 = {k: frequencyGtoL[k] for k in list(frequencyGtoL)[:100]}
+    low100 = {k: frequencyLtoG[k] for k in list(frequencyLtoG)[:100]}
+    temp = "Hundred most common words: \n"
+    i = 1;
+    for key, value in top100.items():
+        temp += str(i) + ".\t" + str(key) + "\t\t" + str(value) + "\n"
+        i = i + 1
+    temp += "\n\n"
+    returnarray.append(temp)
+    temp = "Hundred least common words: \n"
+    i = 1;
+    for key, value in low100.items():
+        temp += str(i) + ".\t" + str(key) + "\t\t" + str(value) + "\n"
+        i = i + 1
+    temp += "\n\n"
+    returnarray.append(temp)
+
+    #keep this at end of Preprocesser
+    return sentences, returnarray, top1000
+ 
+
+def TermSearch(sentences):
+    """Performs a lexical analysis on the file parameter)"""
+    search = easygui.enterbox(msg="Enter your search term.", title="Search")
+    output = ""
+
+    while(search != None):
+        results = []
+        if(search != None):
+            for s in sentences:
+                if(search.lower() in s.lower()):
+                    results.append(s)
+        output += "\n~~~~~The term _" + search + "_ appeared " + str(len(results)) + " time(s).~~~~~\n"
+        for r in results:
+            output += r + "\n\n"
+        search = easygui.enterbox(msg="Enter your search term.", title="Search")
+    return output
+
+def groupSearch(sentences):
+    msg = "Enter the name of your group, then your search terms separated by commas.";
+    title = "Group Search";
+    fieldNames = ["Group Name", "Group Entries"]
+    search = []
+    search = easygui.multenterbox(msg, title, fieldNames)
+    output = ""
+    groupTotal = 0
+    while(search != None):
+        searcharray = search[1].split(",")
+        if(searcharray != None):
+            output += "~~~~~For the group " + search[0] + ":"
+            for term in searcharray:
+                results = []
+                term = term.strip()
+                for sentence in sentences:
+                    if(term.lower() in sentence.lower()):
+                        results.append("\"" + sentence + "\"\n")
+                output += "\n~~~~~The term _" + term + "_ appeared " + str(len(results)) + " time(s).~~~~~\n"
+                groupTotal += len(results)
+                for r in results:
+                    output += r + "\n\n"
+        output += "Group " + search[0] + " total appearances is: " + str(groupTotal)
+        search = []
+        search = easygui.multenterbox(msg, title, fieldNames)
+        groupTotal = 0
+    return output
+
+def doubleWordSearch(sentences):
+    search = easygui.enterbox(msg="Enter two seach terms", title="Search")
+    output = ""
+    searcharray = search.split(",")
+    while(search != None):
+        results = []
+        chapter = 0
+        if(search != None):
+            for s in sentences:
+                if(searcharray[0].lower() in s.lower() and searcharray[1].lower() in s.lower()):
+                    results.append(s)
+        output += "\n~~~~~The terms _" + searcharray[0] + "_ and _" + searcharray[1]  + "_ appeared in the same sentence " + str(len(results)) + " time(s).~~~~~\n"
+        for r in results:
+            output += r + "\n\n"
+        search = easygui.enterbox(msg="Enter two search terms.", title="Search")
+    return output
+
+def ZipfDistribution(filename, top1000):
+    plt.plot(list(top1000.values()))
+    plt.ylabel("Frequency")
+    plt.xlabel("Tokens")
+    plt.savefig("CompletedAnalyses\\" + filename + 'ZipfPlot.png')
+
+def posAnalysis(sentences, filename):
+    arrayOfPOS = [] #hold the tagged pos
+    for s in sentences:
+        words = nltk.word_tokenize(s)
+        arrayOfPOS.append(nltk.pos_tag(words))
+
+    arrayOfSpeechParts = {} #dictionary that hold that POS and frequency of occurances
+    for sentence in arrayOfPOS:
+        for word in sentence:
+            if(word[1] in postags.keys()):
+                if(word[1] not in arrayOfSpeechParts):
+                    arrayOfSpeechParts[word[1]] = 1
+                else:
+                    arrayOfSpeechParts[word[1]] = arrayOfSpeechParts[word[1]] + 1
+    values = []
+    POSLables = []
+    for k in arrayOfSpeechParts.keys():
+        POSLables.append(postags[k])
+        values.append(arrayOfSpeechParts[k])
+
+    verbPOS = []
+    verbPOSCount = []
+    verbTotal = 0
+    WHPOS = []
+    WHPOSCount = []
+    WHTotal = 0
+    advPOS = []
+    advPOSCount = []
+    advTotal = 0
+    adjPOS = []
+    adjPOSCount = []
+    adjTotal = 0
+    nounPOS = []
+    nounPOSCount = []
+    nounTotal = 0
+    pnounPOS = []
+    pnounPOSCount = []
+    pnounTotal = 0
+    otherPOS = []
+    otherPOSCount = []
+    otherTotal = 0
+    i = 0
+    for pos in POSLables:
+        if ("adverb" not in pos and "verb" in pos):
+            verbPOS.append(pos)
+            verbPOSCount.append(values[i])
+            verbTotal += values[i]
+        elif("WH" in pos):
+            WHPOS.append(pos)
+            WHPOSCount.append(values[i])
+            WHTotal += values[i]
+        elif("adverb" in pos):
+            advPOS.append(pos)
+            advPOSCount.append(values[i])
+            advTotal += values[i]
+        elif("adjective" in pos):
+            adjPOS.append(pos)
+            adjPOSCount.append(values[i])
+            adjTotal += values[i]
+        elif("pronoun" not in pos and "noun" in pos):
+            nounPOS.append(pos)
+            nounPOSCount.append(values[i])
+            nounTotal += values[i]
+        elif("pronoun" in pos):
+            pnounPOS.append(pos)
+            pnounPOSCount.append(values[i])
+            pnounTotal += values[i]
+        else:
+            otherPOS.append(pos)
+            otherPOSCount.append(values[i])
+            otherTotal += values[i]
+        i += 1
+
+    posNames = ["Noun", "Pronoun", "Adjective", "Adverb", "Verb", "Wh", "Other"]
+    posVals = [nounTotal, pnounTotal, adjTotal, advTotal, verbTotal, WHTotal, otherTotal]       
+    fig1, total = plt.subplots()
+    total.pie(posVals, explode=None, labels=posNames, autopct='%1.1f%%', shadow=False, startangle=90)
+    total.axis('equal')
+    plt.savefig("CompletedAnalyses\\" + filename + "TotalPartsOfSpeechPlot.png")
+
+    fig1, totalWH = plt.subplots()
+    totalWH.pie(WHPOSCount, explode=None, labels=WHPOS, autopct='%1.1f%%', shadow=False, startangle=90)
+    totalWH.axis('equal')
+    plt.savefig("CompletedAnalyses\\" + filename + "WHPlot.png")
+    
+    fig1, totalAdj = plt.subplots()
+    totalAdj.pie(adjPOSCount, explode=None, labels=adjPOS, autopct='%1.1f%%', shadow=False, startangle=90)
+    totalAdj.axis('equal')
+    plt.savefig("CompletedAnalyses\\" + filename + "AdjectivePlot.png")
+
+    fig1, totalAdverb = plt.subplots()
+    totalAdverb.pie(advPOSCount, explode=None, labels=advPOS, autopct='%1.1f%%', shadow=False, startangle=90)
+    totalAdverb.axis('equal')
+    plt.savefig("CompletedAnalyses\\" + filename + "AdverbPlot.png")
+
+    fig1, totalVerb = plt.subplots()
+    totalVerb.pie(verbPOSCount, explode=None, labels=verbPOS, autopct='%1.1f%%', shadow=False, startangle=90)
+    totalVerb.axis('equal')
+    plt.savefig("CompletedAnalyses\\" + filename + "VerbPlot.png")
+
+    fig1, totalNoun = plt.subplots()
+    totalNoun.pie(nounPOSCount, explode=None, labels=nounPOS, autopct='%1.1f%%', shadow=False, startangle=90)
+    totalNoun.axis('equal')
+    plt.savefig("CompletedAnalyses\\" + filename + "NounPlot.png")
+
+    fig1, totalPronoun = plt.subplots()
+    totalPronoun.pie(pnounPOSCount, explode=None, labels=pnounPOS, autopct='%1.1f%%', shadow=False, startangle=90)
+    totalPronoun.axis('equal')
+    plt.savefig("CompletedAnalyses\\" + filename + "PronounPlot.png")
+
+    fig1, totalOther = plt.subplots()
+    totalOther.pie(otherPOSCount, explode=None, labels=otherPOS, autopct='%1.1f%%', shadow=False, startangle=90)
+    totalOther.axis('equal')
+    plt.savefig("CompletedAnalyses\\" + filename+ "OtherPlot.png")
+
+    return arrayOfSpeechParts
+
+
+##Going to implement this, but it's not quite working yet. 
+##def collocation(aFile):
+##    choices = ["bigram", "trigram", "quadgram"]
+##    search = easygui.multchoicebox("Make a selection.", "Collocation", choices)
+##    tokens = nltk.wordpunct_tokenize(aFile.read())
+##    for s in search:
+##        if (s == choices[0]):
+##            #bigram
+##            bigram_measures = nltk.collocations.BigramAssocMeasures()
+##            word_fd = nltk.FreqDist(tokens)
+##            bigram_fd = nltk.FreqDist(nltk.bigrams(tokens))
+##            finder = BigramCollocationFinder(word_fd, bigram_fd)
+##            scored = finder.score_ngrams(bigram_measures.raw_freq)
+##            print(sorted(bigram for bigram, score in scored))
+##            
+##        if (s == choices[1]):
+##            #trigram
+##            print ("hello")
+##        if(s == choices[2]):
+##            #quadgram
+##            print ("oops")
+    
+def main():
+    file = easygui.fileopenbox()
+    if(file != None):
+        thisFile = open(file, 'r+', encoding="utf8") #open file
+        sent_detector = nltk.data.load('tokenizers/punkt/english.pickle')
+        sentences = nltk.sent_tokenize(thisFile.read())
+        words = nltk.word_tokenize(thisFile.read())
+        sentences, quickfacts, top1000 = Preprocessor(sentences)
+        filebase = op.basename(file)
+        cleanfilename, file_exten = op.splitext(filebase)
+        newFileName = "CompletedAnalyses\\AnalysisOf" + cleanfilename + datetime.now().strftime("%m%d%Y_%H%M") + ".txt"
+        newFile = open(newFileName, "w+")
+        newFile.write("Analysis of " + filebase)
+        for q in quickfacts:
+            newFile.write(q)
+        taggedCorpus = posAnalysis(sentences, cleanfilename) #if we want to do anything with the tagged corpus
+        analysesList = ["Term Search", "Zipf Distribution", "Search for Group of Words", "Search for Sentences Containing Two Terms"]#, "Collocution", "Concordance"] #put names of analyses in here 
+        analysesVals = []
+        analysesVals = easygui.multchoicebox("Select the analyses to be performed. ", "Selection", analysesList)
+        theFile = thisFile.read()
+        tokens = nltk.word_tokenize(theFile)
+        if(analysesVals != None):
+            for choice in analysesVals:
+                if(choice == analysesList[0]):
+                    newFile.write(TermSearch(sentences))
+                if(choice == analysesList[1]):
+                    ZipfDistribution(cleanfilename, top1000)
+                if(choice == analysesList[2]):
+                    newFile.write(groupSearch(sentences))
+                if(choice == analysesList[3]):
+                    newFile.write(doubleWordSearch(sentences))
+##                if(choice == analysesList[4]):
+##                    #newFile.write(collocation(words))
+##                    collocation(thisFile)
+##                #if(choice == analysesList[5]):
+##                #    newFile.write(concordances(thisFile))
+                    
+        thisFile.close() #keep at end of main :)
+        newFile.close() 
+
+if __name__ == "__main__":
+    while True: #Pretending to have a do-while loop
+        main()
+        runagain = easygui.ynbox("Choose another file?", "COCOA")
+        if (runagain == False):
+            break
