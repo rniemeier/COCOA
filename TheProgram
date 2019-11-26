@@ -75,7 +75,6 @@ advtags = {
     "RB": "adverb",
     "RBR": "adverb, comparative",
     "RBS": "adverb, superlative",
-    "WRB": "WH-adverb"
     }
 
 adjtags = {
@@ -95,8 +94,6 @@ verbtags = {
     "MD": "modal auxiliary"
     }
 pronountags = {
-    "WP": "WH-pronoun",
-    "WP$": "WH-pronoun, possessive",
     "PRP": "pronoun, personal",
     "PRP$": "pronoun, possessive",
     "EX": "existential there"
@@ -113,12 +110,10 @@ dettags = {
     "DT": "determiner",
     "LS": "list item marker",
     "PDT": "pre-determiner",
-    "WDT": "WH-determiner"
     }
 
 othertags = {
     "FW": "foreign word",
-    "SYM": "symbol",
     "UH": "interjection",
     "POS": "genitive marker",
     "RP": "particle"
@@ -134,21 +129,27 @@ def Preprocessor(sentences):
     individualWordCount = 0
     returnarray = []
     numOfSentences = 0
+   
     for s in sentences:
         numOfSentences = numOfSentences + 1
+        newString = s
         if("chapter" in s.lower()):
             chapter = chapter + 1
             remove = "Chapter " + str(chapter)
-            s = s.replace(remove, "") #Remove chapter number
-        s = s.replace('\n', ' ')  #Sentences shouldn't have
-        s = s.replace('—', ' ')   #weird newlines or dashes. This also
+            newString = s.replace(remove, "") #Remove chapter number
+        newString = newString.replace('\n', ' ')  #Sentences shouldn't have
+        newString = newString.replace('—', ' ')   #weird newlines or dashes. This also
                                   #makes our data prettier
+        newString = newString.replace('—', ' ')
+        newString = newString.replace("“", "\"")
+        newString = newString.replace("”", "\"")
+        sentences[numOfSentences - 1] = newString
+        s = newString
+        
         #Find the word frequency
         for word in s.split():
             wordCount = wordCount + 1;
             word = word.translate(str.maketrans('', '', string.punctuation))
-            word = word.replace('“', '')
-            word = word.replace('”', '')
             word = word.lower()
             if word in frequency: #word already seen
                 frequency[word] = frequency[word] + 1
@@ -260,16 +261,20 @@ def posAnalysis(sentences, filename):
     for s in sentences:
         words = nltk.word_tokenize(s)
         arrayOfPOS.append(nltk.pos_tag(words))
+    foreignwords = "\n Foreign Words: \n"
 
     arrayOfSpeechParts = {} #dictionary that hold that POS and frequency of occurances
     for sentence in arrayOfPOS:
         for word in sentence:
             if(word[1] in postags.keys()):
+                #find out what "foreign word" means
+                if(word[1] == "FW"):
+                    print(word[0])
+                    foreignwords += " " + word[0] + ", "
                 if(word[1] not in arrayOfSpeechParts):
                     arrayOfSpeechParts[word[1]] = 1
                 else:
                     arrayOfSpeechParts[word[1]] = arrayOfSpeechParts[word[1]] + 1
-
     arrayOfSpeechParts = OrderedDict((sorted(arrayOfSpeechParts.items(), key=lambda x: x[1])))
 
     adjPOS = {}
@@ -323,80 +328,82 @@ def posAnalysis(sentences, filename):
         else:
             otherPOS[postags[pos]] = arrayOfSpeechParts[pos]
 
-#### Uncomment this region to produce pie charts of the data
-##    posNames = ["Noun", "Pronoun", "Adjective", "Adverb", "Verb", "Wh", "Preposition/Conjuntion", "Determiner", "Other"]
-##    posVals = [sum(nounPOS.values()), sum(pnounPOS.values()), sum(adjPOS.values()), sum(adjPOS.values()), sum(verbPOS.values()), sum(WHPOS.values()), sum(pcPOS.values()),sum(detPOS.values()), sum(otherPOS.values())]       
-##    fig1, total = plt.subplots()
-##    total.pie(posVals, explode=None, labels=posNames, autopct='%1.1f%%', shadow=False, startangle=90)
-##    total.axis('equal')
-##    plt.title("Total Parts of Speech Breakdown of " + filename)
-##    plt.savefig("CompletedAnalyses\\" + filename + "TotalPartsOfSpeechPlot.png")
-##    plt.clf()
-##
-##    fig1, totalWH = plt.subplots()
-##    totalWH.pie(WHPOS.values(), explode=None, labels=WHPOS.keys(), autopct='%1.1f%%', shadow=False, startangle=90)
-##    totalWH.axis('equal')
-##    plt.title("WH- Usage Breakdown " + filename)
-##    plt.savefig("CompletedAnalyses\\" + filename + "WHPlot.png")
-##    plt.clf()
-##    
-##    fig1, totalAdj = plt.subplots()
-##    totalAdj.pie(adjPOS.values(), explode=None, labels=adjPOS.keys(), autopct='%1.1f%%', shadow=False, startangle=90)
-##    totalAdj.axis('equal')
-##    plt.title(filename + " Adjective Breakdown")
-##    plt.savefig("CompletedAnalyses\\" + filename + "AdjectivePlot.png")
-##    plt.clf()
-##    fig1.clf()
-##    
-##    fig1, totalAdverb = plt.subplots()
-##    totalAdverb.pie(advPOS.values(), explode=None, labels=advPOS.keys(), autopct='%1.1f%%', shadow=False, startangle=90)
-##    totalAdverb.axis('equal')
-##    plt.title(filename + " Adverb Breakdown")
-##    plt.savefig("CompletedAnalyses\\" + filename + "AdverbPlot.png")
-##    plt.clf()
-##
-##    fig1, totalVerb = plt.subplots()
-##    totalVerb.pie(verbPOS.values(), explode=None, labels=verbPOS.keys(), autopct='%1.1f%%', shadow=False, startangle=90)
-##    totalVerb.axis('equal')
-##    plt.title(filename + " Verb Breakdown")
-##    plt.savefig("CompletedAnalyses\\" + filename + "VerbPlot.png")
-##    plt.clf()
-##
-##    fig1, totalNoun = plt.subplots()
-##    totalNoun.pie(nounPOS.values(), explode=None, labels=nounPOS.keys(), autopct='%1.1f%%', shadow=False, startangle=90)
-##    totalNoun.axis('equal')
-##    plt.title(filename + " Noun Breakdown")
-##    plt.savefig("CompletedAnalyses\\" + filename + "NounPlot.png")
-##    plt.clf()
-##
-##    fig1, totalPronoun = plt.subplots()
-##    totalPronoun.pie(pnounPOS.values(), explode=None, labels=pnounPOS.keys(), autopct='%1.1f%%', shadow=False, startangle=90)
-##    totalPronoun.axis('equal')
-##    plt.title(filename + " Pronoun Breakdown")
-##    plt.savefig("CompletedAnalyses\\" + filename + "PronounPlot.png")
-##    plt.clf()
-##
-##    fig1, totalPrepConj = plt.subplots()
-##    totalPrepConj.pie(pcPOS.values(), explode=None, labels=pcPOS.keys(), autopct='%1.1f%%', shadow=False, startangle=90)
-##    totalPrepConj.axis('equal')
-##    plt.title(filename + " Preposition/Conjunction Breakdown")
-##    plt.savefig("CompletedAnalyses\\" + filename + "PrepConjPlot.png")
-##    plt.clf()
-##    
-##    fig1, totalDet = plt.subplots()
-##    totalDet.pie(detPOS.values(), explode=None, labels=detPOS.keys(), autopct='%1.1f%%', shadow=False, startangle=90)
-##    totalDet.axis('equal')
-##    plt.title(filename + " Determiner Breakdown")
-##    plt.savefig("CompletedAnalyses\\" + filename + "DetPlot.png")
-##    plt.clf()
-##
-##    fig1, totalOther = plt.subplots()
-##    totalOther.pie(otherPOS.values(), explode=None, labels=otherPOS.keys(), autopct='%1.1f%%', shadow=False, startangle=90)
-##    totalOther.axis('equal')
-##    plt.title(filename + " Other Parts of Speech Breakdown")
-##    plt.savefig("CompletedAnalyses\\" + filename+ "OtherPlot.png")
-##    plt.clf()
-##    plt.close('all')
+    
+
+## Uncomment this region to produce pie charts of the data
+    posNames = ["Noun", "Pronoun", "Adjective", "Adverb", "Verb", "Wh", "Preposition/Conjuntion", "Determiner", "Other"]
+    posVals = [sum(nounPOS.values()), sum(pnounPOS.values()), sum(adjPOS.values()), sum(adjPOS.values()), sum(verbPOS.values()), sum(WHPOS.values()), sum(pcPOS.values()),sum(detPOS.values()), sum(otherPOS.values())]       
+    fig1, total = plt.subplots()
+    total.pie(posVals, explode=None, labels=posNames, autopct='%1.1f%%', shadow=False, startangle=90)
+    total.axis('equal')
+    plt.title("Total Parts of Speech Breakdown of " + filename)
+    plt.savefig("CompletedAnalyses\\" + filename + "TotalPartsOfSpeechPlot.png")
+    plt.clf()
+
+    fig1, totalWH = plt.subplots()
+    totalWH.pie(WHPOS.values(), explode=None, labels=WHPOS.keys(), autopct='%1.1f%%', shadow=False, startangle=90)
+    totalWH.axis('equal')
+    plt.title("WH- Usage Breakdown " + filename)
+    plt.savefig("CompletedAnalyses\\" + filename + "WHPlot.png")
+    plt.clf()
+    
+    fig1, totalAdj = plt.subplots()
+    totalAdj.pie(adjPOS.values(), explode=None, labels=adjPOS.keys(), autopct='%1.1f%%', shadow=False, startangle=90)
+    totalAdj.axis('equal')
+    plt.title(filename + " Adjective Breakdown")
+    plt.savefig("CompletedAnalyses\\" + filename + "AdjectivePlot.png")
+    plt.clf()
+    fig1.clf()
+    
+    fig1, totalAdverb = plt.subplots()
+    totalAdverb.pie(advPOS.values(), explode=None, labels=advPOS.keys(), autopct='%1.1f%%', shadow=False, startangle=90)
+    totalAdverb.axis('equal')
+    plt.title(filename + " Adverb Breakdown")
+    plt.savefig("CompletedAnalyses\\" + filename + "AdverbPlot.png")
+    plt.clf()
+
+    fig1, totalVerb = plt.subplots()
+    totalVerb.pie(verbPOS.values(), explode=None, labels=verbPOS.keys(), autopct='%1.1f%%', shadow=False, startangle=90)
+    totalVerb.axis('equal')
+    plt.title(filename + " Verb Breakdown")
+    plt.savefig("CompletedAnalyses\\" + filename + "VerbPlot.png")
+    plt.clf()
+
+    fig1, totalNoun = plt.subplots()
+    totalNoun.pie(nounPOS.values(), explode=None, labels=nounPOS.keys(), autopct='%1.1f%%', shadow=False, startangle=90)
+    totalNoun.axis('equal')
+    plt.title(filename + " Noun Breakdown")
+    plt.savefig("CompletedAnalyses\\" + filename + "NounPlot.png")
+    plt.clf()
+
+    fig1, totalPronoun = plt.subplots()
+    totalPronoun.pie(pnounPOS.values(), explode=None, labels=pnounPOS.keys(), autopct='%1.1f%%', shadow=False, startangle=90)
+    totalPronoun.axis('equal')
+    plt.title(filename + " Pronoun Breakdown")
+    plt.savefig("CompletedAnalyses\\" + filename + "PronounPlot.png")
+    plt.clf()
+
+    fig1, totalPrepConj = plt.subplots()
+    totalPrepConj.pie(pcPOS.values(), explode=None, labels=pcPOS.keys(), autopct='%1.1f%%', shadow=False, startangle=90)
+    totalPrepConj.axis('equal')
+    plt.title(filename + " Preposition/Conjunction Breakdown")
+    plt.savefig("CompletedAnalyses\\" + filename + "PrepConjPlot.png")
+    plt.clf()
+    
+    fig1, totalDet = plt.subplots()
+    totalDet.pie(detPOS.values(), explode=None, labels=detPOS.keys(), autopct='%1.1f%%', shadow=False, startangle=90)
+    totalDet.axis('equal')
+    plt.title(filename + " Determiner Breakdown")
+    plt.savefig("CompletedAnalyses\\" + filename + "DetPlot.png")
+    plt.clf()
+
+    fig1, totalOther = plt.subplots()
+    totalOther.pie(otherPOS.values(), explode=None, labels=otherPOS.keys(), autopct='%1.1f%%', shadow=False, startangle=90)
+    totalOther.axis('equal')
+    plt.title(filename + " Other Parts of Speech Breakdown")
+    plt.savefig("CompletedAnalyses\\" + filename+ "OtherPlot.png")
+    plt.clf()
+    plt.close('all')
 
     percent = ""
 
@@ -427,10 +434,9 @@ def posAnalysis(sentences, filename):
     percent += "OTHER\n"
     for key in otherPOS.keys():
         percent += "key: " + key + "\t value: " + str(otherPOS[key]) + "\t percent: " + str(100 * (otherPOS[key]/(sum(otherPOS.values())))) + "%\n"
-    return percent
+    return percent + foreignwords
 
 
-    
 ##def collocation(aFile):
 ##    choices = ["bigram", "trigram", "quadgram"]
 ##    search = easygui.multchoicebox("Make a selection.", "Collocation", choices)
